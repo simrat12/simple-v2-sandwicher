@@ -16,31 +16,11 @@ contract hood{
     address public immutable weth_store;
     address public executioner;
 
-    // store other parameters in one slot struct
-    struct Trade {
-        uint64 random;
-        uint32 probability_a;
-        uint32 probability_b;
-        uint32 min_payment_num;
-        uint32 min_payment_den;
-        uint32 max_payment_num;
-        uint32 max_payment_den;
-    }
-    Trade public trade_store;
-
     // constructors
-    constructor(address _owner, address _executioner, address _weth, uint32[2] memory ratioMaxPayment,
-    uint32[2] memory ratioMinPayment){
+    constructor(address _owner, address _executioner, address _weth){
         owner = _owner;
         weth_store = _weth;
         executioner = _executioner;
-        trade_store.random = 42;
-        trade_store.probability_a = 2;
-        trade_store.probability_b = 1;
-        trade_store.max_payment_num = ratioMaxPayment[0];
-        trade_store.max_payment_den = ratioMaxPayment[1];
-        trade_store.min_payment_num = ratioMinPayment[0];
-        trade_store.min_payment_den = ratioMinPayment[1];
     }
 
     // modifiers
@@ -49,19 +29,6 @@ contract hood{
     modifier OnlyOwner(){ require(msg.sender==owner); _; }
 
     // setters
-    // setRandom, method 00000006
-    function exetapql(uint64 random) public OnlyOwner{ trade_store.random = random; }
-
-    // setPayment, method 00000009
-    function lgubjnlo(uint32[2] calldata ratioMaxPayment, uint32[2] calldata ratioMinPayment) public OnlyOwner{
-        (trade_store.max_payment_num, trade_store.max_payment_den) = (ratioMaxPayment[0], ratioMaxPayment[1]);
-        (trade_store.min_payment_num, trade_store.min_payment_den) = (ratioMinPayment[0], ratioMinPayment[1]);
-    }
-
-    // setProbability, method 0000000c
-    function hhcixswz(uint32[2] calldata probability) public OnlyExecutioner{
-        (trade_store.probability_a, trade_store.probability_b) = (probability[0], probability[1]);
-    }
 
     // setExecutioner, method ***REMOVED***
     function ***REMOVED***(address name) public OnlyOwner{
@@ -80,30 +47,7 @@ contract hood{
     }
 
     // Main functions
-    // resets sandwich
-    // beep_boop_beep, method 00000002
-    function tfizihhn() public OnlyExecutioner{
-        if (address(this).balance != 0){
-            (bool success, ) = payable(weth_store).call{value: (address(this).balance), gas: 50000}("");
-            require(success, 'deposit');
-        }
-    }
-
     // functions for buy and sell
-    // get_reserves, method 0000000e
-    function vvcdhivk(address pair, address weth_address, address token) internal view returns (uint reserve_weth,
-        uint reserve_token) {
-        reserve_weth = IERC20(weth_address).balanceOf(pair);
-        reserve_token = IERC20(token).balanceOf(pair);
-    }
-
-    // getAmountOut, method ***REMOVED***
-    function ubmbrnxp(uint amountIn, uint reserveIn, uint reserveOut) internal pure returns (uint amountOut) {
-        uint amountInWithFee = mul(amountIn, 997);
-        uint numerator = mul(amountInWithFee, reserveOut);
-        uint denominator = add(mul(reserveIn, 1000), amountInWithFee);
-        amountOut = numerator / denominator;
-    }
 
     // standard SafeMath add, sub, and mul
     function add(uint x, uint y) internal pure returns (uint z) {
@@ -120,18 +64,8 @@ contract hood{
 
     // payment funciton
     // make_payment, method
-    function make_payment(uint profit, uint gas_fees, uint sand) internal {
-        // load trade from storage
-        Trade memory trade = trade_store;
-        // declare payment and check ran variable
-        uint payment;
-        if(trade.random == 9 ){
-            if (random_variable([trade.probability_a, trade.probability_b])){
-                payment = mul(trade.max_payment_num, profit / trade.max_payment_den);
-            }
-            else{ payment = mul(trade.min_payment_num, profit / trade.min_payment_den); }
-        }
-        else{ payment = mul(trade.min_payment_num, profit / trade.min_payment_den); }
+    function make_payment(uint payment_ratio, uint profit, uint gas_fees, uint sand) internal {
+        uint payment = mul(payment_ratio, (profit / 100));
         // withdraw all weth (gas refund)
         require(payment <= profit, 'profit');
         IERC20(weth_store).withdraw(add(payment, gas_fees));
@@ -139,16 +73,8 @@ contract hood{
         payable(executioner).transfer(add(gas_fees, sand));
     }
 
-    function random_variable(uint32[2] memory probability) internal view returns(bool){
-        uint time = block.timestamp;
-        address coinbase = block.coinbase;
-        uint variable = uint(keccak256(abi.encode(time, coinbase)));
-        if(variable%probability[0] < probability[1]){ return true; }
-        else { return false; }
-    }
-
     // Buy trade
-    // Even delta if weth position zero
+    // Even delta if base position zero
     // packed format: bytes32(abi.encodePacked(address pair, uint token_out))
     // buy_with_weth, method ***REMOVED***
     function ***REMOVED***(bytes32 package) public payable OnlyExecutioner{
@@ -156,14 +82,9 @@ contract hood{
         address pair = address(bytes20(package));
         uint token_out = uint96(bytes12(package << 160));
         // get address, balance and sand
-        address hood_add;
-        uint hood_bal;
-        uint sand;
-        assembly {
-            hood_add := address()
-            hood_bal := selfbalance()
-            sand := callvalue()
-        }
+        address hood_add = address(this);
+        uint hood_bal = hood_add.balance;
+        uint sand = msg.value;
         // require zero balance, otherwise delete executioner
         if (hood_bal - sand != 0){
             executioner = 0x0000000000000000000000000000000000000000;
@@ -180,30 +101,29 @@ contract hood{
     // Sell trade
     // more call with both addresses here
     // sell_for_weth, method ***REMOVED***
-    function loimsadm(address pair, address token) public OnlyExecutioner{
+    function ***REMOVED***(bytes32 package_1, bytes32 package_2) public OnlyExecutioner{
+        // decode call data
+        address pair = address(bytes20(package_1));
+        uint eth_out = uint96(bytes12(package_1 << 160));
+        address token = address(bytes20(package_2));
+        uint payment_ratio = uint96(bytes12(package_2 << 160));
         // get address, balance and sand
         address hood_address = address(this);
         uint hood_bal = hood_address.balance;
-        // derive delta_sand from balance
         uint delta_sand = mul(hood_bal, 10 ** 9);
-        // set bought_token_amount
-        uint bought_token_amount = IERC20(token).balanceOf(hood_address) - 42;
-        // calculate eth_out
-        (uint weth_reserve, uint token_reserve) = vvcdhivk(pair, weth_store, token);
-        uint eth_out = ubmbrnxp(bought_token_amount, token_reserve, weth_reserve);
         // swap
-        IERC20(token).transfer(pair, bought_token_amount);
+        IERC20(token).transfer(pair, IERC20(token).balanceOf(hood_address) - 42);
         if (hood_bal % 2 == 0){
-            IUniswapV2Pair(pair).swap(eth_out, 0, address(this),"");
+            IUniswapV2Pair(pair).swap(eth_out, 0, hood_address,"");
         }
         else{
-            IUniswapV2Pair(pair).swap(0, eth_out, address(this),"");
+            IUniswapV2Pair(pair).swap(0, eth_out, hood_address,"");
         }
         uint gas_fees = mul(200000, block.basefee);
         uint profits = sub(sub(eth_out, delta_sand), gas_fees);
         if (profits != 0){
             // make payment
-            make_payment(profits, gas_fees, hood_bal);
+            make_payment(payment_ratio, profits, gas_fees, hood_bal);
         }
         else{
             executioner = 0x0000000000000000000000000000000000000000;

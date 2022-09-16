@@ -1,6 +1,7 @@
 import subprocess
 import time
 import pickle
+import sys
 from web3 import Web3, HTTPProvider
 from flashbots import flashbot
 from models.sandwich import Sandwich
@@ -11,6 +12,13 @@ from brownie_utils.network_utils import change_network
 from web3._utils.method_formatters import (
     to_integer_if_hex
 )
+from filelock import FileLock
+
+# set recursion limit
+sys.setrecursionlimit(10**9)
+
+# locks
+bundle_lock = FileLock('dump/bundle.txt.lock')
 
 # load project
 project.check_for_project()
@@ -18,8 +26,8 @@ project.load()
 contract_part = project.ShinySporkProject
 
 # load account and network
-executor = accounts.load('executor_vanity1')
-flashbots_account = accounts.load('mainnet_flashbots6')
+executor = accounts.load('mainnet_executor')
+flashbots_account = accounts.load('mainnet_flashbots8')
 fork_url = "http://192.168.1.32:8888"
 block_provider = Web3(HTTPProvider(fork_url))
 chain_id = block_provider.eth.chain_id
@@ -50,6 +58,7 @@ command = (f"brownie networks add development {chain_id}-fork cmd=ganache host=h
            + f"accounts=10 mnemonic=brownie port=8545 chain_id={chain_id} evm_version=arrowGlacier timeout=1").split()
 subprocess.run(command)
 
+# parameters
 lower_bound_profits = 0
 upper_bound_sand = 0.25 * 10 ** 18
 
@@ -79,7 +88,7 @@ def get_pending_transactions(_new_transactions):
 
 
 # Wait until we see the sandwiched tx on chain
-def _main(_pending_transactions, _loop_start_time):
+def _main(_pending_transactions, _loop_start_time, _latest_block):
     _ignore_transactions = {}
 
     swap_dict = thread_initialize_class(block_provider, global_contracts, _pending_transactions, upper_bound_sand)
@@ -91,7 +100,10 @@ def _main(_pending_transactions, _loop_start_time):
                 # check nonce is still valid
                 if int(sandwich_tx.tx['nonce']) < int(block_provider.eth.get_transaction_count(sandwich_tx.tx['from'])):
                     raise Exception("Nonce too low!")
-                change_network(str(chain_id) + "-fork")
+                if block_provider.eth.block_number > _latest_block:
+                    _latest_block = block_provider.eth.block_number
+                    print(f"New block found at {_latest_block}, forking...")
+                    change_network(str(chain_id) + "-fork")
                 _provider = network.web3
                 # change network and create flashbot object
                 try:
@@ -101,30 +113,33 @@ def _main(_pending_transactions, _loop_start_time):
                         flashbot(_provider, flashbots_account)
                 except:
                     pass
-                print("New fork at block: ", _provider.eth.block_number)
-                sandwich = Sandwich(_provider, executor, flashbots_account, sandwich_contract, sandwich_tx,
-                                    False, None)
+                sandwich = Sandwich(_provider, block_provider, executor, flashbots_account, sandwich_contract,
+                                    sandwich_tx, False, None)
                 # check nonce is still valid
                 if int(sandwich_tx.tx['nonce']) < int(block_provider.eth.get_transaction_count(sandwich_tx.tx['from'])):
                     raise Exception("Nonce too low!")
-                bundle, swap_hash = sandwich.make_sandwich(False, upper_bound_sand)
+                bundle, swap_hash, real_priority_fee, bundle_hash = sandwich.make_sandwich(False, upper_bound_sand)
                 print("Sandwich found!")
                 print("Sandwich tx:", sandwich_tx)
                 print("Bundle: ", bundle)
                 print("Swap hash: ", swap_hash)
                 print("Total processing time: ", time.time() - _loop_start_time)
-                return _ignore_transactions, bundle, sandwich_tx.tx
+                return _ignore_transactions, bundle, sandwich_tx.tx, _latest_block, real_priority_fee, bundle_hash
             except Exception as e:
                 print("Sandwich error: ", e)
                 delete_hash = sandwich_tx.tx['hash']
                 _ignore_transactions[delete_hash] = _pending_transactions[delete_hash]
-                return _ignore_transactions, None, None
+                print("Fork used, resetting...")
+                change_network(str(chain_id) + "-fork")
+                _latest_block = block_provider.eth.block_number
+                return _ignore_transactions, None, None, _latest_block, None, None
     _ignore_transactions.update(_pending_transactions)
-    return _ignore_transactions, None, None
+    return _ignore_transactions, None, None, _latest_block, None, None
 
 
-with open('dump/bundle.txt', 'wb') as file:
-    pickle.dump({}, file)
+with bundle_lock.acquire():
+    with open('dump/bundle.txt', 'wb') as file:
+        pickle.dump({}, file)
 
 go = True
 ignore_transactions = dict()
@@ -139,6 +154,11 @@ start_block = latest_block
 _bundle = None
 
 while go:
+    if block_provider.eth.block_number > latest_block:
+        latest_block = block_provider.eth.block_number
+        print(f"New block found at {latest_block}, forking...")
+        change_network(str(chain_id) + "-fork")
+    # clear variables
     if clear_when < time.time():
         del ignore_transactions
         ignore_transactions = dict()
@@ -156,22 +176,17 @@ while go:
     loop_start_time = time.time()
     new_transactions = pending_tx_filter.get_new_entries()
     pending_transactions = get_pending_transactions(new_transactions)
-    ignore_transactions, _bundle, swap_tx = _main(pending_transactions, loop_start_time)
+    ignore_transactions, _bundle, swap_tx, latest_block, _real_priority_fee, _bundle_hash = _main(pending_transactions,
+                                                                                                  loop_start_time,
+                                                                                                  latest_block)
     if _bundle is not None:
-        emergency_nonce = executor.nonce
-        with open('dump/bundle.txt', 'wb') as file:
-            pickle.dump({'bundle': _bundle, 'swap': swap_tx}, file)
-        result = {}
-        while not result:
-            time.sleep(0.1)
-            with open('dump/results.txt', 'rb') as file:
-                result = pickle.load(file)
-        with open('dump/results.txt', 'wb') as file:
-            pickle.dump({}, file)
-        success = result["success"]
-        if success == True:
-            print("Success on block: ", result["block"])
-            reorg_start = time.time()
-            while time.time() < reorg_start + 12:
-                executor.transfer(executor, 0, nonce=emergency_nonce, gas_price=block_provider.eth.gas_price * 10,
-                                  allow_revert=True, required_confs=0)
+        lock_start = time.time()
+        with bundle_lock.acquire():
+            with open('dump/bundle.txt', 'wb') as file:
+                pickle.dump({'bundle': _bundle, 'swap': swap_tx, 'real_priority_fee': _real_priority_fee,
+                             'bundle_hash': _bundle_hash}, file)
+        if time.time() - lock_start > 0.1:
+            print("WARNING! FileLock latency > 0.1s")
+        print("Fork used, resetting...")
+        change_network(str(chain_id) + "-fork")
+        latest_block = block_provider.eth.block_number

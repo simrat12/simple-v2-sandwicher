@@ -37,7 +37,6 @@ def thread_initialize_class(web3, global_contracts, pending_transactions, upper_
     result = dict()
     thread_refs = dict()
     for _, tx in pending_transactions.items():
-        print("Processing: ", tx)
         # double check to_list and check nonce still valid
         tx_hash = tx['hash']
         tx_thread = ThreadWithReturnValue(target=inititialize_class, args=(web3,

@@ -1,3 +1,5 @@
+import copy
+
 from web3._utils.method_formatters import (
     to_integer_if_hex
 )
@@ -44,9 +46,6 @@ class V2SwapTransaction:
             base_token = self.v2_contracts.coin_contract.address
         else:
             raise Exception("Source token is not ETH or DAI:", self.data[1]['srcToken'])
-        # check if only one pool
-        if len(self.data[1]['pools']) > 1:
-            raise Exception("Path too long!")
         # get pool address and token
         self.pool_address = self.w3.toChecksumAddress("0x" + self.data[1]['pools'][0].hex()[-40:])
         # create pool contract
@@ -59,6 +58,46 @@ class V2SwapTransaction:
             token = token_one
         else:
             token = token_zero
+        # calc amount out if pool > 1
+        if len(self.data[1]['pools']) > 1:
+            # format pool path
+            pool_path = {}
+            p = 0
+            for pool in self.data[1]['pools']:
+                if p != 0:
+                    pool_addr = self.w3.toChecksumAddress("0x" + pool.hex()[-40:])
+                    pool_path[p] = {'contract': self.w3.eth.contract(pool_addr, abi=self.v2_contracts.uni_pair.abi)}
+                p += 1
+            print("Pool path step 1 ", pool_path)
+            # get reserves of pool tokens
+            token_in = token.lower()
+            for key in pool_path.keys():
+                token_0 = pool_path[key]['contract'].functions.token0().call().lower()
+                token_1 = pool_path[key]['contract'].functions.token1().call().lower()
+                pool_reserves = pool_path[key]['contract'].functions.getReserves().call()
+                token_0_reserve = pool_reserves[0]
+                token_1_reserve = pool_reserves[1]
+                if token_0 == token_in:
+                    pool_path[key]['in'] = token_0_reserve
+                    pool_path[key]['out'] = token_1_reserve
+                    token_in = token_1
+                else:
+                    pool_path[key]['in'] = token_1_reserve
+                    pool_path[key]['out'] = token_0_reserve
+                    token_in = token_0
+            print("Pool path step 2 ", pool_path)
+            # calculate token amount out
+            _id = len(pool_path)
+            amount_out = copy.deepcopy(self.amount_out)
+            virtual_router = self.v2_contracts.uni_router
+            while _id > 0:
+                amount_out = virtual_router.functions.getAmountIn(amount_out, pool_path[_id]['in'],
+                                                                  pool_path[_id]['out']).call()
+                _id -= 1
+            self.amount_out = amount_out
+            print("Calculated amount_out ", amount_out)
+            print("Swap hash ", self.tx['hash'])
+        # continue check
         self.path = [base_token, token]
         self.amount_in = self.data[1]['amount']
         factory = self.pool_contract.functions.factory().call().lower()
@@ -88,12 +127,8 @@ class V2SwapTransaction:
                                         'swapExactTokensForETH', 'swapExactTokensForExactETH',
                                         'swapExactTokensForTokens', 'swapTokensForExactTokens']:
             raise Exception("Unrecognised function: ", self.data[0].fn_name)
-        print(self.data[0].fn_name)
-        print(self.data[1])
         # check that first token in path is weth .. or len(path) > 1
         self.path = self.data[1]['path']
-        if len(self.path) > 2:
-            raise Exception("Path too long: ", self.path)
         if self.path[0].lower() not in [self.v2_contracts.weth_contract.address.lower(),
                                         self.v2_contracts.coin_contract.address.lower()]:
             raise Exception("Invalid path: ", self.path)
@@ -113,6 +148,12 @@ class V2SwapTransaction:
             self.amount_out = self.data[1]['amountOut']
         else:
             raise Exception("Error setting amounts.")
+        # calculate amountOut for paths longer than 2
+        if len(self.path) > 2:
+            virtual_amount_out = copy.deepcopy(self.amount_out)
+            virtual_path = copy.deepcopy(self.path)
+            virtual_path.pop(0)
+            self.amount_out = router.functions.getAmountsIn(virtual_amount_out, virtual_path).call()[0]
         # get pool address for uniswap
         self.pool_address = factory.functions.getPair(self.path[0], self.path[1]).call()
         # create pool contract
@@ -205,8 +246,6 @@ class V2AMM:
                 slippage = 0
             # log iteration
             iterations += 1
-            print("New slippage: ", slippage)
-            print("New abstract profits: ", abstract_profits)
         print(f"Delta_sand found within {iterations} iterations.")
         return int(delta_sand)
 
