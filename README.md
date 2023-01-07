@@ -11,7 +11,7 @@ Sandwich bot for Uniswap V2 type swaps, integrated with Uniswap V2 & V3, 1inch, 
 ## Dependencies
 - RPC access to Ethereum node capable of creating ganache forks.
 - Ganache
-- Brownie
+- Brownie (--fork.preLatestConfirmations must be set to 0)
 - Flashbots Web3.py
 - eth_account
 ## Deployment
