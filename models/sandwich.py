@@ -126,7 +126,7 @@ class Sandwich:
             sim_inversebrah_on_bread[i] = HexBytes(sim_inversebrah_on_bread[i])
             i += 1
 
-        # require contract balance is 42
+        # require contract balance is 0, can be set to any small number (although contract will need to be edited)
         if int(self.w3.eth.get_balance(self.contract.address)) != 0:
             raise Exception("Contract eth balance must be 0 to sandwich.")
         # require token_out < 2^95
