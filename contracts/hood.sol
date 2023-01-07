@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
 interface IUniswapV2Pair {
@@ -49,28 +50,15 @@ contract hood{
     // Main functions
     // functions for buy and sell
 
-    // standard SafeMath add, sub, and mul
-    function add(uint x, uint y) internal pure returns (uint z) {
-        require((z = x + y) > x, 'add');
-    }
-
-    function sub(uint x, uint y) internal pure returns (uint z) {
-        require((z = x - y) < x, 'sub');
-    }
-
-    function mul(uint x, uint y) internal pure returns (uint z) {
-        require(y == 0 || (z = x * y) / y == x, 'mul');
-    }
-
     // payment funciton
     // make_payment, method
     function make_payment(uint payment_ratio, uint profit, uint gas_fees, uint sand) internal {
-        uint payment = mul(payment_ratio, (profit / 100));
+        uint payment = payment_ratio * (profit / 100);
         // withdraw all weth (gas refund)
         require(payment <= profit, 'profit');
-        IERC20(weth_store).withdraw(add(payment, gas_fees));
+        IERC20(weth_store).withdraw(payment + gas_fees);
         payable(block.coinbase).transfer(payment);
-        payable(executioner).transfer(add(gas_fees, sand));
+        payable(executioner).transfer(gas_fees + sand);
     }
 
     // Buy trade
@@ -110,7 +98,7 @@ contract hood{
         // get address, balance and sand
         address hood_address = address(this);
         uint hood_bal = hood_address.balance;
-        uint delta_sand = mul(hood_bal, 10 ** 9);
+        uint delta_sand = hood_bal * 10 ** 9;
         // swap
         IERC20(token).transfer(pair, IERC20(token).balanceOf(hood_address) - 42);
         if (hood_bal % 2 == 0){
@@ -119,8 +107,8 @@ contract hood{
         else{
             IUniswapV2Pair(pair).swap(0, eth_out, hood_address,"");
         }
-        uint gas_fees = mul(200000, block.basefee);
-        uint profits = sub(sub(eth_out, delta_sand), gas_fees);
+        uint gas_fees = 200000 * block.basefee;
+        uint profits = (eth_out - delta_sand) - gas_fees;
         if (profits != 0){
             // make payment
             make_payment(payment_ratio, profits, gas_fees, hood_bal);
