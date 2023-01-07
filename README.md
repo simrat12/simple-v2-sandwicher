@@ -25,3 +25,4 @@ Use at your own risk, according to the laws in your jurisdiction, and try not to
 -	Possible for executioner to buy tokens and not sell them if the buy transaction passes validity checks.
 - Possible that a successful bundle will be tampered with by a validator or reorganised such that only a buy occurs or a failed transaction lands (resetting the executioner role).
 - Only WETH <-> Token swaps are possible.
+- Simulations (both local or Flashbots) may not be accurate leading to a failed bundle on chain.
