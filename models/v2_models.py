@@ -42,10 +42,8 @@ class V2SwapTransaction:
         # check that first pool is eth or dai
         if self.data[1]['srcToken'].lower() == "0x0000000000000000000000000000000000000000".lower():
             base_token = self.v2_contracts.weth_contract.address
-        elif self.data[1]['srcToken'].lower() == self.v2_contracts.coin_contract.address.lower():
-            base_token = self.v2_contracts.coin_contract.address
         else:
-            raise Exception("Source token is not ETH or DAI:", self.data[1]['srcToken'])
+            raise Exception("Source token is not ETH:", self.data[1]['srcToken'])
         # get pool address and token
         self.pool_address = self.w3.toChecksumAddress("0x" + self.data[1]['pools'][0].hex()[-40:])
         # create pool contract
@@ -129,8 +127,7 @@ class V2SwapTransaction:
             raise Exception("Unrecognised function: ", self.data[0].fn_name)
         # check that first token in path is weth .. or len(path) > 1
         self.path = self.data[1]['path']
-        if self.path[0].lower() not in [self.v2_contracts.weth_contract.address.lower(),
-                                        self.v2_contracts.coin_contract.address.lower()]:
+        if self.path[0].lower() not self.v2_contracts.weth_contract.address.lower():
             raise Exception("Invalid path: ", self.path)
         # define min amount out and path
         func = self.data[0].fn_name
