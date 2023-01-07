@@ -20,8 +20,8 @@ from web3._utils.method_formatters import (
 sys.setrecursionlimit(10**9)
 
 # discord
-token = '***REMOVED***'
-channel = ***REMOVED***
+token = ''
+channel = ''
 baseURL = "https://discordapp.com/api/channels/{}/messages".format(channel)
 headers = {"Authorization": "Bot {}".format(token), "Content-Type": "application/json", }
 

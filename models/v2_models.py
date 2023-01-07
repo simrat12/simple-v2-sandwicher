@@ -127,7 +127,7 @@ class V2SwapTransaction:
             raise Exception("Unrecognised function: ", self.data[0].fn_name)
         # check that first token in path is weth .. or len(path) > 1
         self.path = self.data[1]['path']
-        if self.path[0].lower() not self.v2_contracts.weth_contract.address.lower():
+        if self.path[0].lower() != self.v2_contracts.weth_contract.address.lower():
             raise Exception("Invalid path: ", self.path)
         # define min amount out and path
         func = self.data[0].fn_name
