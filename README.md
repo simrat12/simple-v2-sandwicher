@@ -19,7 +19,7 @@ Sandwich bot for Uniswap V2 type swaps, integrated with Uniswap V2 & V3, 1inch, 
 Use at your own risk, according to the laws in your jurisdiction, and try not to get rekt.
 1.	Deploy contract with a cold wallet (owner role) and set executioner to hot wallet to be used.
 2.	Send ETH to executioner wallet, and WETH to the contract.
-3.	Update variables in main.py and send_bundle.py accordingly.
+3.	Update variables in generate_contracts.py, main.py and send_bundle.py accordingly.
 4.	Run generate_contracts.py, then main.py, and then send_bundle.py.
 ## Limitations
 -	Possible for executioner to buy tokens and not sell them if the buy transaction passes validity checks.
