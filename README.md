@@ -19,7 +19,7 @@ Use at your own risk, according to the laws in your jurisdiction, and try not to
 1.	Deploy contract with a cold wallet (owner role) and set executioner to hot wallet to be used.
 2.	Send ETH to executioner wallet, and WETH to the contract.
 3.	Update variables in main.py and send_bundle.py accordingly.
-4.	Run main.py, and then send_bundle.py.
+4.	Run generate_contracts.py, then main.py, and then send_bundle.py.
 ## Limitations
 -	Possible for executioner to buy tokens and not sell them if the buy transaction passes validity checks.
 - Possible that a successful bundle will be tampered with by a validator or reorganised such that only a buy occurs or a failed transaction lands (resetting the executioner role).
