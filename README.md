@@ -1,4 +1,4 @@
-# shiny-spork
+# simple-v2-sandwicher
 
 Sandwich bot for Uniswap V2 type swaps, integrated with Uniswap V2 & V3, 1inch, Sushi, and sent with Flashbots. The key features are:
 
