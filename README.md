@@ -26,3 +26,4 @@ Use at your own risk, according to the laws in your jurisdiction, and try not to
 - Possible that a successful bundle will be tampered with by a validator or reorganised such that only a buy occurs or a failed transaction lands (resetting the executioner role).
 - Only WETH <-> Token swaps are possible.
 - Simulations (both local or Flashbots) may not be accurate leading to a failed bundle on chain.
+- Profit, the nash equilibrium of the Flashbots auctions for well known oportunities like v2 sandwiches gives an expected profit of 0. To respect this, miner profit share is hard coded to 99%.
