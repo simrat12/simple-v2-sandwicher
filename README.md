@@ -14,6 +14,7 @@ Sandwich bot for Uniswap V2 type swaps, integrated with Uniswap V2 & V3, 1inch, 
 - Brownie (--fork.preLatestConfirmations must be set to 0)
 - Flashbots Web3.py
 - eth_account
+- Etherscan API key
 ## Deployment
 Use at your own risk, according to the laws in your jurisdiction, and try not to get rekt.
 1.	Deploy contract with a cold wallet (owner role) and set executioner to hot wallet to be used.
