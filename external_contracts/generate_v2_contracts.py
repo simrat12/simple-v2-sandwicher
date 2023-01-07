@@ -9,7 +9,7 @@ change_network('homeETH')
 web3 = network.web3
 
 # export etherscan api token
-os.environ["ETHERSCAN_TOKEN"] = "***REMOVED***"
+os.environ["ETHERSCAN_TOKEN"] = ""
 
 
 def build_entry(contract):
@@ -53,11 +53,8 @@ sushi = V2Contract("0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F")
 shiba = V2Contract("0x03f7724180AA6b939894B5Ca4314783B0b36b329")
 
 # create v2 compatible contract objects from router address
-v3 = V2CompatibleRouter("")
+v3 = V2CompatibleRouter("0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45")
 inch = V2CompatibleRouter("0x1111111254fb6c44bAC0beD2854e76F90643097d")
-
-# trading coin
-coin = "0x6B175474E89094C44Da98b954EedeAC495271d0F"
 
 # create models contract dictionary from router address
 v2_dictionary = {
@@ -66,8 +63,7 @@ v2_dictionary = {
     'shiba': shiba.dictionary,
     'v3': v3.dictionary,
     'inch': inch.dictionary,
-    'weth': {'contract': uni.dictionary['weth']},
-    'coin': {'contract': build_entry(Contract.from_explorer(coin))}
+    'weth': {'contract': uni.dictionary['weth']}
 }
 
 # save to file
