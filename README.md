@@ -7,7 +7,7 @@ Sandwich bot for Uniswap V2 type swaps, integrated with Uniswap V2 & V3, 1inch, 
 -  Multithreading implementations for bundle submission / failure analysis, and for pre-processing of potential swap transactions.
 - Latency monitoring and warnings.
 - After the fact analysis of failed bundles, posted to a Discord channel.
-- Separation of contract owner and executioner roles, with executioner address reset to 0x0000… automatically by the contract if unprofitable transactions or buy transactions that fail the validity check are signed by the executioner address.
+- Separation of contract owner and executioner roles, with executioner address reset to 0x0000… automatically by the contract if buy or sell transactions that fail the crude validity checks are signed by the executioner address.
 ## Dependencies
 - RPC access to Ethereum node capable of creating ganache forks.
 - Ganache
