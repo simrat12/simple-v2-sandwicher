@@ -31,6 +31,7 @@ flashbots_account = accounts.load('mainnet_flashbots8')
 fork_url = "http://192.168.1.32:8888"
 block_provider = Web3(HTTPProvider(fork_url))
 chain_id = block_provider.eth.chain_id
+
 # load global contracts
 path = 'external_contracts/v2_contracts.dictionary'
 global_contracts = GlobalContracts(block_provider, path)
@@ -39,6 +40,7 @@ to_list = [global_contracts.uni_router.address,
            global_contracts.inch_router.address,
            global_contracts.v3_router.address]
 to_list = [string.lower() for string in to_list]
+
 # contract
 hood_code = contract_part.hood
 abi = hood_code.abi

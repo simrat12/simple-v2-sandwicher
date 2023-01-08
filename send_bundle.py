@@ -29,7 +29,10 @@ headers = {"Authorization": "Bot {}".format(token), "Content-Type": "application
 bundle_lock = FileLock('dump/bundle.txt.lock')
 results_lock = FileLock('dump/results.txt.lock')
 
+# offset for your timezone
 time_stamp_local_adjustment = -3600
+
+# accounts and network
 change_network('homeGETH')
 goerli = False
 flashbots_account = accounts.load('mainnet_flashbots8')
