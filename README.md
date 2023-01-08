@@ -17,13 +17,13 @@ Sandwich bot for Uniswap V2 type swaps, integrated with Uniswap V2 & V3, 1inch, 
 - Etherscan API key
 ## Deployment
 Use at your own risk, according to the laws in your jurisdiction, and try not to get rekt.
-1.	Deploy contract with a cold wallet (owner role) and set executioner to hot wallet to be used.
+1.	Deploy contract with any wallet, set executioner as the hot wallet to be used, and owner to a cold wallet.
 2.	Send ETH to executioner wallet, and WETH to the contract.
 3.	Update variables in generate_contracts.py, main.py and send_bundle.py accordingly.
 4.	Run generate_contracts.py, then main.py, and then send_bundle.py.
 ## Limitations
+- Profit, the nash equilibrium of the Flashbots auctions for well known oportunities like v2 sandwiches gives an expected profit of 0. To respect this, miner profit share is hard coded in sandwich.py to 99%.
 -	Possible for executioner to buy tokens and not sell them if the buy transaction passes validity checks.
 - Possible that a successful bundle will be tampered with by a validator or reorganised such that only a buy occurs or a failed transaction lands (resetting the executioner role).
 - Only WETH <-> Token swaps are possible.
 - Simulations (both local or Flashbots) may not be accurate leading to a failed bundle on chain.
-- Profit, the nash equilibrium of the Flashbots auctions for well known oportunities like v2 sandwiches gives an expected profit of 0. To respect this, miner profit share is hard coded to 99%.
