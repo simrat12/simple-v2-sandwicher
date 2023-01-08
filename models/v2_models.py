@@ -213,7 +213,6 @@ class V2AMM:
         # find delta_sand starting with delta_sand = swap_eth_in
         new_delta_sand = 0
         delta_sand = new_delta_sand
-        abstract_profits = 0
         iterations = 0
         abstract_profits_list = []
         step_size = self.eth_step

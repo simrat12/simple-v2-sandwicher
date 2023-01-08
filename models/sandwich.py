@@ -48,7 +48,7 @@ class Sandwich:
         while len(payment_ratio) < 24:
             payment_ratio = '0' + payment_ratio
         package_2 = token_address + payment_ratio
-        sell_tx = self.contract.functions.***REMOVED***(package_1, package_2)
+        sell_tx = self.contract.functions.sell_for_weth(package_1, package_2)
         sell_tx = sell_tx.build_transaction({
             "gas": 150000,
             "maxFeePerGas": self.swap_max_fee,
@@ -66,7 +66,7 @@ class Sandwich:
             token_out = '0' + token_out
         package = pair_address + token_out
         value = int(delta_sand * 10 ** (-9))
-        buy_tx = self.contract.functions.***REMOVED***(package)
+        buy_tx = self.contract.functions.buy_with_weth(package)
         buy_tx = buy_tx.build_transaction({
             "value": value,
             "gas": 150000,
@@ -134,7 +134,6 @@ class Sandwich:
             raise Exception("Token out too large!")
         # do simulation
         total_gas_used = 0
-        swap_gas_used = 0
         for i in sim_inversebrah_on_bread:
             print('Simulating transaction ', sim_inversebrah_on_bread.index(i))
             receipt = self.w3.eth.send_raw_transaction(i)
@@ -142,8 +141,6 @@ class Sandwich:
             if sim_inversebrah_on_bread.index(i) == 0:
                 total_gas_used += receipt['gasUsed']
                 print("Buy gas: ", total_gas_used)
-            if sim_inversebrah_on_bread.index(i) == 1:
-                swap_gas_used = receipt['gasUsed']
             if receipt['status'] == 0:
                 raise Exception("First simulation failed!")
         print("First simulation successful")
