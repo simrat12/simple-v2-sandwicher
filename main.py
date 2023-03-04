@@ -13,6 +13,22 @@ from web3._utils.method_formatters import (
     to_integer_if_hex
 )
 from filelock import FileLock
+import sched
+
+
+s = sched.scheduler(time.time, time.sleep)
+
+def clear_ignore_transactions():
+    # clear ignore_transactions dictionary
+    ignore_transactions.clear()
+    ignore_transactions.update({"0x00": {}})
+    # schedule the next run of the function after 300 seconds
+    s.enter(300, 1, clear_ignore_transactions)
+
+# schedule the first run of the function after 300 seconds
+s.enter(300, 1, clear_ignore_transactions)
+s.run()
+
 
 # set recursion limit
 sys.setrecursionlimit(10**9)
@@ -160,12 +176,7 @@ while go:
         latest_block = block_provider.eth.block_number
         print(f"New block found at {latest_block}, forking...")
         change_network(str(chain_id) + "-fork")
-    # clear variables
-    if clear_when < time.time():
-        del ignore_transactions
-        ignore_transactions = dict()
-        ignore_transactions.update({"0x00": {}})
-        clear_when = time.time() + clear_interval
+
     # loop start time
     whole_loop_latency = time.time() - loop_start_time
     whole_loop_latency_vect.insert(0, whole_loop_latency)
