@@ -121,7 +121,8 @@ fn main() -> Result<()> {
                 current_block = latest_block;
             }
         }
-    });
+    }
+);
 
 rt.block_on(async move {
     // Load contract ABI
