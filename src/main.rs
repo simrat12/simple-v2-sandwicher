@@ -31,6 +31,8 @@ const SANDWICH_CONTRACT_ADDRESS: &str = "***REMOVED***";
 
 static WEB3: Lazy<Web3<WebSocket>> = Lazy::new(|| Web3::new(WebSocket::new(WEBSOCKET_URL).unwrap()));
 
+//need to import GlobalContracts
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct PendingTransaction {
     from: Address,
@@ -58,33 +60,6 @@ struct ContractDictionary {
     v3_router: Contract,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct Contract {
-    address: String,
-}
-
-struct GlobalContracts {
-    uni_router: Contract,
-    sushi_router: Contract,
-    inch_router: Contract,
-    v3_router: Contract,
-}
-
-impl GlobalContracts {
-    fn new(block_provider: web3::Web3<web3::transports::WebSocket>) -> Self {
-        let path = Path::new("external_contracts/v2_contracts.dictionary");
-        let file = File::open(path).expect("Unable to open contract dictionary file");
-        let reader = BufReader::new(file);
-        let dictionary: ContractDictionary = serde_json::from_reader(reader).expect("Unable to deserialize contract dictionary");
-
-        GlobalContracts {
-            uni_router: dictionary.uni_router,
-            sushi_router: dictionary.sushi_router,
-            inch_router: dictionary.inch_router,
-            v3_router: dictionary.v3_router,
-        }
-    }
-}
 
 async fn start_ganache_fork(block_number: u64) -> Result<Child, Box<dyn std::error::Error>> {
     let infura_project_id = "YOUR-INFURA-PROJECT-ID";
@@ -105,16 +80,43 @@ async fn start_ganache_fork(block_number: u64) -> Result<Child, Box<dyn std::err
 
 async fn get_pending_transactions(
     provider: Arc<Provider<Http>>,
-    pending_transactions: Vec<Transaction>,
+    raw_pending_transactions: Vec<Transaction>,
+    current_block_number: u64,
+    real_priority_fee: U256,
 ) -> Result<(), Box<dyn Error>> {
+    let to_list = vec![
+        global_contracts.uni_router.address.to_lowercase(),
+        global_contracts.sushi_router.address.to_lowercase(),
+        global_contracts.inch_router.address.to_lowercase(),
+        global_contracts.v3_router.address.to_lowercase(),
+    ];
+    
+
+    let pending_transactions: Vec<Transaction> = raw_pending_transactions
+        .into_iter()
+        .filter(|tx| {
+            tx.to
+                .as_ref()
+                .map(|to| to_list.contains(&to.to_string().to_lowercase()))
+                .unwrap_or(false)
+        })
+        .collect();
+
+    let swap_dict = thread_initialize_class(
+        provider.clone(),
+        &global_contracts,
+        &pending_transactions,
+        UPPER_BOUND_SAND,
+        ).await;
+
     for tx in pending_transactions {
-        let sandwich_tx_candidate = max_sandwich_constraints(
-            tx.clone(),
+        let sandwich_tx_candidate = max_sandwich_constraints(   // need to double check arguments here 
+            &swap_dict,
             LOWER_BOUND_PROFIT,
             UPPER_BOUND_SAND,
         );
 
-        let sandwich = Sandwich::new(      //need to double check if these are the right parameters
+        let sandwich = Sandwich::new(
             provider.clone(),
             sandwich_contract.clone(),
             tx.clone(),
@@ -126,7 +128,7 @@ async fn get_pending_transactions(
 
         let mainnet_flashbots = env::var("MAINNET_FLASHBOTS").expect("MAINNET_FLASHBOTS not set");
 
-        match sandwich.make_sandwich(current_block_number, real_priority_fee).await {          //need to double check these arguments
+        match sandwich.make_sandwich(current_block_number, real_priority_fee).await {
             Ok((bundle, swap_hash, real_priority_fee, bundle_hash)) => {
                 // Create flashbots client
                 let flashbots_client =
@@ -171,13 +173,19 @@ fn main() -> Result<(), Box<dyn Error>> {
     let rt = Runtime::new().unwrap();
 
     let block_provider = web3::Web3::new(web3::transports::WebSocket::new("ws://localhost:8545").unwrap());
-    let global_contracts = GlobalContracts::new(block_provider);
-    let TO_LIST = vec![                                              // This should be used
-        global_contracts.uni_router.address.to_lowercase(),
-        global_contracts.sushi_router.address.to_lowercase(),
-        global_contracts.inch_router.address.to_lowercase(),
-        global_contracts.v3_router.address.to_lowercase(),
-    ];
+    let http = Http::new("https://mainnet.infura.io/v3/YOUR-PROJECT-ID").unwrap();  //not sure which one to feed into globalContracts
+    let web3 = Web3::new(http);
+    let eth = web3.eth();
+    let path = "external_contracts/v2_contracts.dictionary".to_string();
+
+    // Initialize the GlobalContracts struct
+    let global_contracts = match GlobalContracts::new(eth, path) {
+        Ok(contracts) => contracts,
+        Err(e) => {
+            eprintln!("Error initializing GlobalContracts: {}", e);
+            return;
+        }
+    };
     let pending_transactions: HashMap<H256, Transaction> = HashMap::new();
     let mut ignore_transactions: HashMap<H256, Transaction> = HashMap::new();
 
