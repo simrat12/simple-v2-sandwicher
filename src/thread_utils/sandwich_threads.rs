@@ -65,11 +65,11 @@ fn thread_initialize_class(web3: &str, global_contracts: &str, pending_transacti
     Arc::try_unwrap(result).unwrap().into_inner().unwrap()
 }
 
-fn max_sandwich_constraints(swap_dict: HashMap<String, Option<V2SwapTransaction>>, lower_bound_profits: f64, upper_bound_sand: u32) -> Option<V2SwapTransaction> {
+pub fn max_sandwich_constraints(swap_dict: HashMap<String, Option<V2SwapTransaction>>, lower_bound_profits: f64, upper_bound_sand: u32) -> Option<V2SwapTransaction> {
     // Remove instances with None or without abstract_profits field
     let mut filtered_swaps: Vec<V2SwapTransaction> = swap_dict.into_iter()
         .filter_map(|(_, opt_swap)| opt_swap)
-        .filter(|swap| /* check if swap has an abstract_profits field, assuming it's an Option<f64> */)
+        .filter(|swap| swap.abstract_profits.is_some() /* check if swap has an abstract_profits field, assuming it's an Option<f64> */)
         .collect();
 
     // Filter swaps based on criteria
