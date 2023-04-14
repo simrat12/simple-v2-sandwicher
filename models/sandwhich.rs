@@ -3,19 +3,14 @@ use std::convert::TryInto;
 use web3::types::{TransactionReceipt, H256, U256};
 
 struct Sandwich {
+    web3: Web3<Http>,
+    block_provider: BlockProvider,
     account: Account,
-    flashbots_account: Account,
-    contract: Contract<Http>,
-    w3: web3::Web3<Http>,
-    block_provider: Web3BlockProvider,
-    swap: SwapTransaction,
+    flashbots_account: FlashbotsAccount,
+    sandwich_contract: Contract,
+    swap_transaction: V2SwapTransaction,
     bypass: bool,
     bypass_raw: Vec<u8>,
-    swap_raw: Vec<u8>,
-    base_fee: U256,
-    swap_max_fee: U256,
-    swap_priority_fee: U256,
-    swap_effective_priority_fee: U256,
 }
 
 pub struct SandwichResult {

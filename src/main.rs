@@ -79,7 +79,8 @@ async fn start_ganache_fork(block_number: u64) -> Result<Child, Box<dyn std::err
 }
 
 async fn get_pending_transactions(
-    provider: Arc<Provider<Http>>,
+    provider: &web3,
+    block_provider: &web3,
     raw_pending_transactions: Vec<Transaction>,
     current_block_number: u64,
     real_priority_fee: U256,
@@ -109,24 +110,26 @@ async fn get_pending_transactions(
         UPPER_BOUND_SAND,
         ).await;
 
+    let mainnet_flashbots = env::var("MAINNET_FLASHBOTS").expect("MAINNET_FLASHBOTS not set");
+    let executor_wallet = env::var("MAINNET_WALLET").expect("MAINNET_WALLET not set");
+
     for tx in pending_transactions {
-        let sandwich_tx_candidate = max_sandwich_constraints(   // need to double check arguments here 
+        let sandwich_tx_candidate = max_sandwich_constraints(   
             &swap_dict,
             LOWER_BOUND_PROFIT,
             UPPER_BOUND_SAND,
         );
 
         let sandwich = Sandwich::new(
-            provider.clone(),
-            sandwich_contract.clone(),
-            tx.clone(),
-            bundle_lock.clone(),
-            bundle_file.clone(),
-            LOWER_BOUND_PROFIT,
-            UPPER_BOUND_SAND,
+            &provider,
+            &block_provider,
+            &account,
+            &flashbots_account,
+            &sandwich_contract,
+            &swap_transaction,
+            false,
+            None,
         );
-
-        let mainnet_flashbots = env::var("MAINNET_FLASHBOTS").expect("MAINNET_FLASHBOTS not set");
 
         match sandwich.make_sandwich(current_block_number, real_priority_fee).await {
             Ok((bundle, swap_hash, real_priority_fee, bundle_hash)) => {
@@ -173,6 +176,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let rt = Runtime::new().unwrap();
 
     let block_provider = web3::Web3::new(web3::transports::WebSocket::new("ws://localhost:8545").unwrap());
+    let provider = web3::Web3::new(web3::transports::WebSocket::new("<INFURA_WS_API_URL>").unwrap());
     let http = Http::new("https://mainnet.infura.io/v3/YOUR-PROJECT-ID").unwrap();  //not sure which one to feed into globalContracts
     let web3 = Web3::new(http);
     let eth = web3.eth();
@@ -218,7 +222,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         // Start pending transactions filter
         let filter = provider.eth_filter().create_pending().await?;
         let new_transactions = filter.get_changes().await?;
-        let pending_transactions = get_pending_transactions(provider.clone(), new_transactions).await?;
+        let pending_transactions = get_pending_transactions(provider.clone(), new_transactions).await?; // need to pass in correct arguments here
 
         Ok(())
     }).unwrap();
