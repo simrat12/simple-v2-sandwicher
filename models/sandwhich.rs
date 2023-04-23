@@ -3,7 +3,6 @@ use std::convert::TryInto;
 use web3::types::{TransactionReceipt, H256, U256};
 
 struct Sandwich {
-    web3: Web3<Http>,
     block_provider: BlockProvider,
     account: Account,
     flashbots_account: FlashbotsAccount,
@@ -22,7 +21,6 @@ pub struct SandwichResult {
 
 impl Sandwich {
     async fn new(
-        web3: web3::Web3<Http>,
         block_provider: Web3BlockProvider,
         account: Account,
         flashbots_account: Account,
@@ -35,7 +33,6 @@ impl Sandwich {
             account,
             flashbots_account,
             contract: sandwich_contract,
-            w3: web3.clone(),
             block_provider,
             swap: swap_transaction,
             bypass,
@@ -100,7 +97,6 @@ impl Sandwich {
         let payment_ratio_hex = payment_ratio.to_hex_string();
         let payment_ratio_hex = format!("{:0>24}", payment_ratio_hex);
 
-        let package_2
         let package_2 = format!("{}{}", token_address.to_string(), payment_ratio_hex);
 
         let sell_tx = self.contract.method::<_, Bytes>("sell_for_weth", (package_1, package_2)).await.unwrap();
@@ -208,7 +204,7 @@ impl Sandwich {
     // Other methods like `make_sandwich` go here
     pub async fn make_sandwich(&self, testing: bool, testing_amount: U256) -> Result<SandwichResult, Box<dyn std::error::Error>> {
         // Get nonce of account, chain, and fees
-        let chain_id = self.w3.chain_id().await?;
+        let chain_id = self.block_provider.provider().chain_id().await?;
         let weth = &self.swap.v2_contracts.weth_contract;
 
         // Add funds to contract if testing
@@ -217,7 +213,7 @@ impl Sandwich {
         }
 
         // Get nonce and initialize eth_balance_before
-        let nonce = self.w3.get_transaction_count(self.account.address(), None).await?;
+        let nonce = self.block_provider.provider().get_transaction_count(self.account.address(), None).await?;
         let base_position = self.swap.base_position;
         let pair_address = self.swap.pair_address.clone();
         let mut delta_sand = self.swap.delta_sand;
@@ -295,7 +291,7 @@ impl Sandwich {
         println!("Buy gas: {}", simulation.total_gas_used());
 
         println!("First simulation successful");
-        let token_address = self.swap.token_address
+        let token_address = self.swap.token_address;
 
         // Get signed sell_tx
         let token_balance = token.balance_of(self.contract.address()).await?;
@@ -311,9 +307,9 @@ impl Sandwich {
         println!("Simulating transaction 2");
 
         let zero_address: Address = "0x0000000000000000000000000000000000000000".parse()?;
-        let miner_balance_before = self.w3.eth().balance(zero_address.unwrap(), None).await?;
-        let receipt = self.w3.eth().send_raw_transaction(sim_sell[0].clone()).await?;
-        let receipt = self.w3.eth().transaction_receipt(receipt).await?;
+        let miner_balance_before = self.block_provider.provider().eth().balance(zero_address.unwrap(), None).await?;
+        let receipt = self.block_provider.provider().eth().send_raw_transaction(sim_sell[0].clone()).await?;
+        let receipt = self.block_provider.provider().eth().transaction_receipt(receipt).await?;
         let total_gas_used = total_gas_used + receipt.gas_used.ok_or("Failed to get gas used from transaction receipt")?;
         println!("Sell gas: {:?}", receipt.gas_used.ok_or("Failed to get gas used from transaction receipt"));
 
@@ -323,7 +319,7 @@ impl Sandwich {
 
         println!("Second simulation successful!");
         println!("Total gas used: {:?}", total_gas_used);
-        let sandwich_payment = self.w3.eth().balance(zero_address.unwrap(), None).await? - miner_balance_before;
+        let sandwich_payment = self.block_provider.provider().eth().balance(zero_address.unwrap(), None).await? - miner_balance_before;
         let sandwich_effective_price = sandwich_payment / total_gas_used;
         let real_priority_fee = sandwich_payment / total_gas_used;
 
@@ -333,7 +329,7 @@ impl Sandwich {
         }
 
         let bundle_hash = format!("0x{}{}{}", buy_hash, self.swap.tx.hash, sell_hash);
-        let bundle_hash = self.w3.keccak_hex(bundle_hash)?;
+        let bundle_hash = self.block_provider.provider().keccak_hex(bundle_hash)?;
 
         Ok(SandwichResult {
             inversebrah_on_bread,

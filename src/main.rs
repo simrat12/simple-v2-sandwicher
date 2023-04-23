@@ -121,7 +121,6 @@ async fn get_pending_transactions(
         );
 
         let sandwich = Sandwich::new(
-            &provider,
             &block_provider,
             &account,
             &flashbots_account,
@@ -219,10 +218,20 @@ fn main() -> Result<(), Box<dyn Error>> {
         // Start a local Ganache fork at the most recent block number
         let mut ganache_process = start_ganache_fork(current_block_number).await?;
 
-        // Start pending transactions filter
-        let filter = provider.eth_filter().create_pending().await?;
-        let new_transactions = filter.get_changes().await?;
-        let pending_transactions = get_pending_transactions(provider.clone(), new_transactions).await?; // need to pass in correct arguments here
+        // Create a pending transactions filter
+        let filter = provider.eth_filter().create_pending_transactions_filter().await?;
+
+        // Get the new pending transaction hashes
+        let new_transaction_hashes = filter.get_all_changes().await?;
+
+        // Fetch the pending transaction data for each hash
+        let raw_pending_transactions: Vec<Transaction> = new_transaction_hashes
+            .into_iter()
+            .filter_map(|tx_hash| provider.eth().transaction(tx_hash).await.unwrap_or(None))
+            .collect();
+
+        // Probably need to define provider as a web3 instance only
+        let pending_transactions = get_pending_transactions(&block_provider, raw_pending_transactions, current_block_number, real_priority_fee).await?; // need to pass in correct arguments here
 
         Ok(())
     }).unwrap();

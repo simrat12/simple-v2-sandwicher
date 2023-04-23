@@ -341,54 +341,31 @@ impl V2AMM {
         }
     }
 
-    fn optimal_sandwich(&mut self) -> i64 {
-        // calculate initial slippage
-        let actual_token_out = self.swap(self.swap_eth_in, self.initial_reserves_eth, self.initial_reserves_token).0;
-        let slippage = actual_token_out - self.swap_token_out;
-        // return zero if no initial slippage
-        if slippage - 1 <= 0 {
-            return 0;
-        }
-        // find delta_sand starting with delta_sand = swap_eth_in
-        let mut new_delta_sand = 0;
-        let mut delta_sand = new_delta_sand;
-        let mut iterations = 0;
-        let mut abstract_profits_list = vec![];
-        let mut step_size = self.eth_step;
-        while slippage - 1 > 0 {
-            // doubles step size every 100 iterations
-            if iterations % 100 == 99 {
-                step_size = step_size * 2;
-            }
-            delta_sand = new_delta_sand;
-            // calculate delta_sand +/- step
-            let delta_sand_u = new_delta_sand + step_size;
-            // calculate new slippages and reserves
-            let slippage_u = self.slip_and_res(delta_sand_u);
-            // calculate new abstract profits
-            let abstract_profits_u = self.abstract_profits(delta_sand_u);
-            // stops runaway iteration
-            if slippage == slippage_u {
-                println!("Stopped runaway iteration!");
-                slippage_u = 0;
-            }
-            // slippage logic
-            if slippage_u - 1 > 0 && iterations < 3 {
-                abstract_profits_list.push(abstract_profits_u);
-                slippage = slippage_u;
-                new_delta_sand = delta_sand_u;
-            } else if slippage_u - 1 > 0 && abstract_profits_u > abstract_profits_list[iterations - 2] {
-                abstract_profits_list.push(abstract_profits_u);
-                slippage = slippage_u;
-                new_delta_sand = delta_sand_u;
+    fn optimal_sandwich(&mut self) -> i64 {                  //Golden Search - need to check if function is unimodal
+        let phi = (1.0 + (5.0 as f64).sqrt()) / 2.0;
+        let tolerance = 1e-5;
+    
+        let mut a = 0.0;
+        let mut b = self.swap_eth_in as f64;
+        let mut x1 = b - (b - a) / phi;
+        let mut x2 = a + (b - a) / phi;
+    
+        while (b - a).abs() > tolerance {
+            let f1 = -1.0 * self.abstract_profits(x1 as i64);
+            let f2 = -1.0 * self.abstract_profits(x2 as i64);
+    
+            if f1 < f2 {
+                a = x1;
+                x1 = x2;
+                x2 = a + (b - a) / phi;
             } else {
-                slippage = 0;
+                b = x2;
+                x2 = x1;
+                x1 = b - (b - a) / phi;
             }
-            // log iteration
-            iterations += 1;
         }
-        println!("Delta_sand found within {} iterations.", iterations);
-        delta_sand
+    
+        ((a + b) / 2.0) as i64
     }
 
     fn slip_and_res(&self, delta_sand: i64) -> i64 {
